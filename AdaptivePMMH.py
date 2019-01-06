@@ -20,12 +20,12 @@ class AdaptivePMMH(mcmc.PMMH):
                     ['w01', 'w02', 'w1', 'k0', 'k1']]), 'Please name the arguments w01, w02, w1, k0 and k1 (float)'
         m1 = kwargs.pop('m1')  # end of first adaptive phase
         m2 = kwargs.pop('m2')  # end of second phase
-        update_interv = kwargs.pop('update_interv')
-        w01 = kwargs.pop('w01')  # Weigth for iid RW-step proposal.
-        w02 = kwargs.pop('w02')  # Weight for RW-step proposal.
-        w1 = kwargs.pop('w1')  # Weight for mixture part without inflated variance
-        k0 = kwargs.pop('k0')  # Variance inflation factor
-        k1 = kwargs.pop('k1')  # Variance inflation factor
+        update_interv = kwargs.pop('update_interv')  # at which rate should we update the gaussian mixture in the second phase
+        w01 = kwargs.pop('w01')  # Weigth for iid RW-step proposal. (0.4 in the paper)
+        w02 = kwargs.pop('w02')  # Weight for RW-step proposal. (0.5 in the paper)
+        w1 = kwargs.pop('w1')  # Weight for mixture part without inflated variance (0.8 in the paper)
+        k0 = kwargs.pop('k0')  # Variance inflation factor (phase 1)
+        k1 = kwargs.pop('k1')  # Variance inflation factor (phase 2)
 
         super(AdaptivePMMH, self).__init__(*args, **kwargs)
 
