@@ -148,7 +148,7 @@ class AdaptivePMMH(mcmc.PMMH):
 
         return ({"weights": [self.w1, 1 - self.w1], "composition": [density, density_]})
 
-    # log-density of a Gaussian Mixture
+    # density of a Gaussian Mixture
     def mixtureDensity(self, x, mixture):
         """
         Parameters
@@ -175,7 +175,7 @@ class AdaptivePMMH(mcmc.PMMH):
                     for i in range(len(mixture["weights"]))
                 ]
             )
-        return np.log(density)
+        return density
 
     # random number generation from a mixture
     def mixtureRandom(self, mixture):
@@ -214,14 +214,18 @@ class AdaptivePMMH(mcmc.PMMH):
                 self.chain.copyto_at(n, self.chain, n - 1)
 
             self.cov_tracker.update(self.chain.arr[n])
-            self.L = self.scale * self.cov_tracker.L
+            # self.L = self.scale * self.cov_tracker.L
+            self.L = np.cov(self.chain.arr[:n], rowvar=False)
+
         else:  # Independance phase
             if n in self.sequence:
-                self.dicMixt = self.proposalMixture(self.chain.arr[0:n - 1])
+                self.dicMixt = self.proposalMixture(self.chain.arr[:n - 1])
+                self.GenLP = np.log(self.mixtureDensity(self.chain.arr[n - 1], self.dicMixt))
 
             self.prop.arr[0] = self.propDensity()
             self.compute_post()
-            self.PropGenLP = self.mixtureDensity(self.prop.arr[0], self.dicMixt)
+            self.PropGenLP = np.log(self.mixtureDensity(self.prop.arr[0], self.dicMixt))
+
             lp_acc = self.prop.lpost[0] - self.chain.lpost[n - 1] - (self.PropGenLP - self.GenLP)
             if np.log(stats.uniform.rvs()) < lp_acc:  # accept
                 self.chain.copyto_at(n, self.prop, 0)
