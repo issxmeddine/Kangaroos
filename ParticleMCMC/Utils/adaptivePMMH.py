@@ -55,7 +55,7 @@ class AdaptivePMMH(mcmc.PMMH):
         -------
         A vector proposition for the MH update
         """
-        if self.dicMixt == None:
+        if self.dicMixt is None:
             return (stats.norm.rvs(size=self.chain.dim, scale=0.1))  # for the first proposals
         else:
             return (self.mixtureRandom(self.dicMixt))
@@ -78,12 +78,11 @@ class AdaptivePMMH(mcmc.PMMH):
         n = p.shape[0]  # sample size
 
         # K-Means clustering
-        try:
-            cholesky = np.linalg.cholesky(np.cov(p))
-            choleskyinv = np.linalg.inv(cholesky)
-            kmeans = cluster.KMeans(n_clusters=comp_count, random_state=20).fit(np.dot(choleskyinv, p))
-        except np.linalg.LinAlgError:
-            kmeans = cluster.KMeans(n_clusters=comp_count, random_state=20).fit(p)
+        cholesky = np.linalg.cholesky(np.cov(p, rowvar=False))
+        choleskyinv = np.linalg.inv(cholesky)
+        kmeans = cluster.KMeans(n_clusters=comp_count).fit(
+                np.dot(p, np.transpose(choleskyinv))
+            )
 
         labels = kmeans.labels_
         mean_c = [np.zeros((d, 1)) for _ in range(comp_count)]  # cluster means
@@ -93,7 +92,7 @@ class AdaptivePMMH(mcmc.PMMH):
 
         for i in range(comp_count):
             mean_c[i] = np.apply_along_axis(func1d=np.mean, axis=0, arr=p[labels == i, :])
-            var_c[i] = np.cov(np.transpose(p[labels == i, :]))
+            var_c[i] = np.cov(p[labels == i, :], rowvar=False)
             weights.append(np.sum(labels == i) / n)
             likelihood[i, :] = np.sum(labels == i) / n * stats.multivariate_normal.pdf(x=p,
                                                                                        mean=mean_c[i],
@@ -101,7 +100,7 @@ class AdaptivePMMH(mcmc.PMMH):
                                                                                        allow_singular=True)
 
         loglikelihood = np.sum(np.log(np.sum(likelihood, axis=0)))
-        BIC = -2 * loglikelihood + (comp_count * (d * (d + 1) / 2 + d + 1)) * np.log(comp_count)
+        BIC = -2 * loglikelihood + (comp_count * (d * (d + 1) / 2 + d + 1)) * np.log(n)
 
         # Gaussian Mixture density
         if comp_count == 1:
@@ -126,8 +125,8 @@ class AdaptivePMMH(mcmc.PMMH):
         Information relative to the mixture of Gaussians (Dictionary)
         """
 
-        BIC = np.array([np.nan for i in range(6)])
-        densitylist = np.array([{} for i in range(6)])
+        BIC = np.array([np.nan for _ in range(6)])
+        densitylist = np.array([{} for _ in range(6)])
         for i in range(1, 7):
             c = self.clusteringMixture(p, i)
             BIC[i - 1] = c["BIC"]
