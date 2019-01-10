@@ -56,9 +56,10 @@ class AdaptivePMMH(mcmc.PMMH):
         A vector proposition for the MH update
         """
         if self.dicMixt is None:
-            return (stats.norm.rvs(size=self.chain.dim, scale=0.1))  # for the first proposals
+            return stats.norm.rvs(size=self.chain.dim, scale=0.1)  # for the first proposals
+
         else:
-            return (self.mixtureRandom(self.dicMixt))
+            return self.mixtureRandom(self.dicMixt)
 
     # clustering in order to return a mixture (with the corresponding BIC)
     def clusteringMixture(self, p, comp_count=1):
@@ -135,7 +136,7 @@ class AdaptivePMMH(mcmc.PMMH):
         density = densitylist[index]  # selected density by BIC minimization
 
         density_ = density.copy()  # density with inflated variance
-        if (index == 0):
+        if index == 0:
             density_["variance"] = self.k1 * density_["variance"]
             return (
                 {"weights": [self.w1, 1 - self.w1], "composition": [density, density_]}
@@ -174,7 +175,7 @@ class AdaptivePMMH(mcmc.PMMH):
                     for i in range(len(mixture["weights"]))
                 ]
             )
-        return (np.log(density))
+        return np.log(density)
 
     # random number generation from a mixture
     def mixtureRandom(self, mixture):
@@ -187,18 +188,18 @@ class AdaptivePMMH(mcmc.PMMH):
             choice = np.int(np.random.choice(len(mixture["weights"]),
                                              size=1, replace=True, p=mixture["weights"]))
             random = self.mixtureRandom(mixture["composition"][choice])
-        return (random)
+        return random
 
     def step(self, n):
         if n <= self.m1:  # first phase of the adaptation: Random-walk
             if self.nacc >= 2 * self.chain.dim:
-                null_mean = l = np.zeros(self.chain.dim)
+                null_mean = np.zeros(self.chain.dim)
                 self.dicMixt = {
                     'weights': [self.w01, self.w02, 1 - self.w01 - self.w02],
                     'composition': [
                         {"mean": null_mean, "variance": 0.1 * np.diag(np.repeat(1, self.chain.dim))},
-                        {"mean": null_mean, "variance": (2.38 * 2.38 / self.chain.dim) * self.L},
-                        {"mean": null_mean, "variance": (self.k0 * 2.38 * 2.38 / self.chain.dim) * self.L}
+                        {"mean": null_mean, "variance": (2.38**2 / self.chain.dim) * self.L},
+                        {"mean": null_mean, "variance": (self.k0 * 2.38**2 / self.chain.dim) * self.L}
                     ]
                 }
 
@@ -214,17 +215,13 @@ class AdaptivePMMH(mcmc.PMMH):
 
             self.cov_tracker.update(self.chain.arr[n])
             self.L = self.scale * self.cov_tracker.L
-
-
         else:  # Independance phase
             if n in self.sequence:
                 self.dicMixt = self.proposalMixture(self.chain.arr[0:n - 1])
 
             self.prop.arr[0] = self.propDensity()
             self.compute_post()
-
             self.PropGenLP = self.mixtureDensity(self.prop.arr[0], self.dicMixt)
-
             lp_acc = self.prop.lpost[0] - self.chain.lpost[n - 1] - (self.PropGenLP - self.GenLP)
             if np.log(stats.uniform.rvs()) < lp_acc:  # accept
                 self.chain.copyto_at(n, self.prop, 0)
