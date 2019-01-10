@@ -30,7 +30,6 @@ class RandomWalk2D_poisson(ssm.StateSpaceModel):
     '''
     A Random Walk Model with Poisson emission distribution
     '''
-
     default_parameters = {'sigma': 0.01}
 
     def PX0(self):
