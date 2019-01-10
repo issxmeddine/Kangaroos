@@ -81,7 +81,7 @@ class AdaptivePMMH(mcmc.PMMH):
         # K-Means clustering
         cholesky = np.linalg.cholesky(np.cov(p, rowvar=False))
         choleskyinv = np.linalg.inv(cholesky)
-        kmeans = cluster.KMeans(n_clusters=comp_count).fit(
+        kmeans = cluster.KMeans(n_clusters=comp_count, n_jobs=-1).fit(
                 np.dot(p, np.transpose(choleskyinv))
             )
 
