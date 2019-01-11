@@ -262,4 +262,4 @@ class AdaptivePMMH(mcmc.PMMH):
 
     def run(self):
         super(AdaptivePMMH, self).run()
-        self.evidence /= self.niter - self.m2
+        self.evidence = np.log(self.evidence)-np.log(self.niter - self.m2)
