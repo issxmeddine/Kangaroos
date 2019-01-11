@@ -31,7 +31,6 @@ def print_metrics(model):
     """
     Print a few interesting metrics about the HM
     """
-    model.compute_post()
     print('mean square jump distance: {}'.format(model.mean_sq_jump_dist(discard_frac=0.1)))
     print('posterior loglikelihood: {}'.format(model.chain.lpost[-5:]))
     print('Acceptance rate: {}'.format(model.acc_rate))
@@ -42,7 +41,6 @@ def distplot(prior, model, start):
     """
     Plot the marginal distribution of all of the parameters in the HM after discarding the steps before the start
     """
-    theta = model.chain.theta
     for p in prior.keys():
         plt.figure()
         seaborn.distplot(model.chain.theta[p][start:]).set_title(p)

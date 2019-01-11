@@ -1,5 +1,5 @@
 from scipy import stats
-from sklearn import cluster
+from sklearn import cluster, mixture
 import numpy as np
 import particles.mcmc as mcmc
 
@@ -27,6 +27,11 @@ class AdaptivePMMH(mcmc.PMMH):
         k0 = kwargs.pop('k0')  # Variance inflation factor (phase 1)
         k1 = kwargs.pop('k1')  # Variance inflation factor (phase 2)
 
+        if 'EM' in kwargs:  # EM algo for Gaussian Mixture (KMeans as in the article otherwise)
+            self.EM = kwargs.pop('EM')
+        else:
+            self.EM = False
+
         super(AdaptivePMMH, self).__init__(*args, **kwargs)
 
         self.m1 = m1
@@ -48,6 +53,10 @@ class AdaptivePMMH(mcmc.PMMH):
         self.dicMixt = None
         self.PropGenLP = 0  # for the accept/reject part, the proposal likelihood
         self.GenLP = 0
+
+        self.evidence = 0
+
+        self.null_mean = np.zeros(self.chain.dim)
 
     def propDensity(self):
         """
@@ -78,27 +87,42 @@ class AdaptivePMMH(mcmc.PMMH):
         d = p.shape[1]  # dimension of observations
         n = p.shape[0]  # sample size
 
-        # K-Means clustering
-        cholesky = np.linalg.cholesky(np.cov(p, rowvar=False))
-        choleskyinv = np.linalg.inv(cholesky)
-        kmeans = cluster.KMeans(n_clusters=comp_count, n_jobs=-1).fit(
-                np.dot(p, np.transpose(choleskyinv))
-            )
-
-        labels = kmeans.labels_
         mean_c = [np.zeros((d, 1)) for _ in range(comp_count)]  # cluster means
         var_c = [np.zeros((d, d)) for _ in range(comp_count)]  # cluster variances
         likelihood = np.zeros((comp_count, n))  # for BIC computation
         weights = []
 
-        for i in range(comp_count):
-            mean_c[i] = np.apply_along_axis(func1d=np.mean, axis=0, arr=p[labels == i, :])
-            var_c[i] = np.cov(p[labels == i, :], rowvar=False)
-            weights.append(np.sum(labels == i) / n)
-            likelihood[i, :] = np.sum(labels == i) / n * stats.multivariate_normal.pdf(x=p,
-                                                                                       mean=mean_c[i],
-                                                                                       cov=var_c[i],
-                                                                                       allow_singular=True)
+        if not self.EM:
+            # K-Means clustering
+            cholesky = np.linalg.cholesky(np.cov(p, rowvar=False))
+            choleskyinv = np.linalg.inv(cholesky)
+            kmeans = cluster.KMeans(n_clusters=comp_count, n_jobs=-1).fit(
+                    np.dot(p, np.transpose(choleskyinv))
+                )
+            labels = kmeans.labels_
+
+            for i in range(comp_count):
+                mean_c[i] = np.apply_along_axis(func1d=np.mean, axis=0, arr=p[labels == i, :])
+                var_c[i] = np.cov(p[labels == i, :], rowvar=False)
+                weights.append(np.sum(labels == i) / n)
+                likelihood[i, :] = np.sum(labels == i) / n * stats.multivariate_normal.pdf(x=p,
+                                                                                           mean=mean_c[i],
+                                                                                           cov=var_c[i],
+                                                                                           allow_singular=True)
+
+        else:
+            GM = mixture.GaussianMixture(n_components=comp_count, covariance_type='full', max_iter=1000)
+            GM.fit(p)
+
+            for i in range(comp_count):
+                mean_c[i] = GM.means_[i]
+                var_c[i] = GM.covariances_[i]
+                weights.append(GM.weights_[i])
+                likelihood[i, :] = GM.weights_[i]* stats.multivariate_normal.pdf(x=p,
+                                                                                 mean=mean_c[i],
+                                                                                 cov=var_c[i],
+                                                                                 allow_singular=True)
+
 
         loglikelihood = np.sum(np.log(np.sum(likelihood, axis=0)))
         BIC = -2 * loglikelihood + (comp_count * (d * (d + 1) / 2 + d + 1)) * np.log(n)
@@ -193,13 +217,12 @@ class AdaptivePMMH(mcmc.PMMH):
     def step(self, n):
         if n <= self.m1:  # first phase of the adaptation: Random-walk
             if self.nacc >= 2 * self.chain.dim:
-                null_mean = np.zeros(self.chain.dim)
                 self.dicMixt = {
                     'weights': [self.w01, self.w02, 1 - self.w01 - self.w02],
                     'composition': [
-                        {"mean": null_mean, "variance": 0.1 * np.diag(np.repeat(1, self.chain.dim))},
-                        {"mean": null_mean, "variance": (2.38**2 / self.chain.dim) * self.L},
-                        {"mean": null_mean, "variance": (self.k0 * 2.38**2 / self.chain.dim) * self.L}
+                        {"mean": self.null_mean, "variance": 0.1 * np.diag(np.repeat(1, self.chain.dim))},
+                        {"mean": self.null_mean, "variance": (2.38**2 / self.chain.dim) * self.L},
+                        {"mean": self.null_mean, "variance": (self.k0 * 2.38**2 / self.chain.dim) * self.L}
                     ]
                 }
 
@@ -226,6 +249,9 @@ class AdaptivePMMH(mcmc.PMMH):
             self.compute_post()
             self.PropGenLP = np.log(self.mixtureDensity(self.prop.arr[0], self.dicMixt))
 
+            if n > self.m2:
+                self.evidence += np.exp(self.prop.lpost[0] - self.PropGenLP)
+
             lp_acc = self.prop.lpost[0] - self.chain.lpost[n - 1] - (self.PropGenLP - self.GenLP)
             if np.log(stats.uniform.rvs()) < lp_acc:  # accept
                 self.chain.copyto_at(n, self.prop, 0)
@@ -233,3 +259,7 @@ class AdaptivePMMH(mcmc.PMMH):
                 self.GenLP = self.PropGenLP
             else:  # reject
                 self.chain.copyto_at(n, self.chain, n - 1)
+
+    def run(self):
+        super(AdaptivePMMH, self).run()
+        self.evidence /= self.niter - self.m2
