@@ -11,17 +11,23 @@ def simulate_plot(model):
     plt.plot(y)
 
 
-def plot_theta(prior, model):
+def plot_theta(prior, model, burnin=False, m=None, linecolor='darkred'):
     """
     Plot the Markov chain obtained in the HM for all parameters defined in the prior dictionnary
     """
     for p in prior.keys():
         plt.figure()
         plt.plot(model.chain.theta[p])
+        if burnin:
+            plt.axvline(x=m[0], color=linecolor, linestyle='--')
+            plt.axvline(x=m[1], color=linecolor, linestyle='--')
         plt.xlabel('iter')
         plt.ylabel(p)
     plt.figure()
     plt.plot(model.chain.lpost)
+    if burnin:
+        plt.axvline(x=m[0], color=linecolor, linestyle='--')
+        plt.axvline(x=m[1], color=linecolor, linestyle='--')
     plt.xlabel('iter')
     plt.ylabel('lpost')
     plt.show()

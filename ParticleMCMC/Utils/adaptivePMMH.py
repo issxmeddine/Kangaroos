@@ -215,19 +215,17 @@ class AdaptivePMMH(mcmc.PMMH):
         return random
 
     def step(self, n):
+        d = self.chain.dim
         if n <= self.m1:  # first phase of the adaptation: Random-walk
-            if self.nacc >= 2 * self.chain.dim:
-                self.dicMixt = {
-                    'weights': [self.w01, self.w02, 1 - self.w01 - self.w02],
-                    'composition': [
-                        {"mean": self.null_mean, "variance": 0.1 * np.diag(np.repeat(1, self.chain.dim))},
-                        {"mean": self.null_mean, "variance": (2.38**2 / self.chain.dim) * self.L},
-                        {"mean": self.null_mean, "variance": (self.k0 * 2.38**2 / self.chain.dim) * self.L}
-                    ]
-                }
-
-            z = self.propDensity()
-            self.prop.arr[0] = self.chain.arr[n - 1] + z
+            if self.nacc < 2 * self.chain.dim:
+                z = self.propDensity()
+                self.prop.arr[0] = self.chain.arr[n-1]+z
+            else:
+                z = stats.norm.rvs(size=d)
+                choice = np.int(np.random.choice(3, size=1,
+                                                 p=[self.w01, self.w02, 1-self.w01-self.w02]))
+                factor = [0.1*np.eye(d), self.L, np.sqrt(self.k0)*self.L][choice]
+                self.prop.arr[0] = self.chain.arr[n - 1] + np.dot(factor, z)
             self.compute_post()
             lp_acc = self.prop.lpost[0] - self.chain.lpost[n - 1]
             if np.log(stats.uniform.rvs()) < lp_acc:  # accept
@@ -237,8 +235,7 @@ class AdaptivePMMH(mcmc.PMMH):
                 self.chain.copyto_at(n, self.chain, n - 1)
 
             self.cov_tracker.update(self.chain.arr[n])
-            # self.L = self.scale * self.cov_tracker.L
-            self.L = np.cov(self.chain.arr[:n], rowvar=False)
+            self.L = self.scale * self.cov_tracker.L
 
         else:  # Independance phase
             if n in self.sequence:
@@ -259,6 +256,52 @@ class AdaptivePMMH(mcmc.PMMH):
                 self.GenLP = self.PropGenLP
             else:  # reject
                 self.chain.copyto_at(n, self.chain, n - 1)
+
+    # def step_(self, n):
+    #     if n <= self.m1:  # first phase of the adaptation: Random-walk
+    #         if self.nacc >= 2 * self.chain.dim:
+    #             self.dicMixt = {
+    #                 'weights': [self.w01, self.w02, 1 - self.w01 - self.w02],
+    #                 'composition': [
+    #                     {"mean": self.null_mean, "variance": 0.1 * np.diag(np.repeat(1, self.chain.dim))},
+    #                     {"mean": self.null_mean, "variance": (2.38**2 / self.chain.dim) * self.L},
+    #                     {"mean": self.null_mean, "variance": (self.k0 * 2.38**2 / self.chain.dim) * self.L}
+    #                 ]
+    #             }
+    #
+    #         z = self.propDensity()
+    #         self.prop.arr[0] = self.chain.arr[n - 1] + z
+    #         self.compute_post()
+    #         lp_acc = self.prop.lpost[0] - self.chain.lpost[n - 1]
+    #         if np.log(stats.uniform.rvs()) < lp_acc:  # accept
+    #             self.chain.copyto_at(n, self.prop, 0)
+    #             self.nacc += 1
+    #         else:  # reject
+    #             self.chain.copyto_at(n, self.chain, n - 1)
+    #
+    #         self.cov_tracker.update(self.chain.arr[n])
+    #         # self.L = self.scale * self.cov_tracker.L
+    #         self.L = np.cov(self.chain.arr[:n], rowvar=False)
+    #
+    #     else:  # Independance phase
+    #         if n in self.sequence:
+    #             self.dicMixt = self.proposalMixture(self.chain.arr[:n - 1])
+    #             self.GenLP = np.log(self.mixtureDensity(self.chain.arr[n - 1], self.dicMixt))
+    #
+    #         self.prop.arr[0] = self.propDensity()
+    #         self.compute_post()
+    #         self.PropGenLP = np.log(self.mixtureDensity(self.prop.arr[0], self.dicMixt))
+    #
+    #         if n > self.m2:
+    #             self.evidence += np.exp(self.prop.lpost[0] - self.PropGenLP)
+    #
+    #         lp_acc = self.prop.lpost[0] - self.chain.lpost[n - 1] - (self.PropGenLP - self.GenLP)
+    #         if np.log(stats.uniform.rvs()) < lp_acc:  # accept
+    #             self.chain.copyto_at(n, self.prop, 0)
+    #             self.nacc += 1
+    #             self.GenLP = self.PropGenLP
+    #         else:  # reject
+    #             self.chain.copyto_at(n, self.chain, n - 1)
 
     def run(self):
         super(AdaptivePMMH, self).run()
