@@ -17,10 +17,15 @@ class LDP(dists.ProbDist):  # A first distribution that is needed to sample X
 
     def rvs(self, size=1):
         x = copy.copy(self.loc)
-        count = int(self.dt*self.step)
+        count = self.dt*self.step
+        count, remain = int(count), (count - int(count))/self.step
         W = np.random.normal(size=count)
         for i in range(count):
-            x += (self.r+self.sigma**2/2-self.b*np.exp(x))/self.step+self.sigma/np.sqrt(self.step)*W[i]
+            x += (self.r + self.sigma ** 2 / 2 - self.b * np.exp(x)) / self.step + self.sigma / np.sqrt(self.step) * W[
+                i]
+        if remain != 0:
+            x += (self.r + self.sigma ** 2 / 2 - self.b * np.exp(x)) * remain + self.sigma * np.sqrt(
+                remain) * np.random.normal()
         return x
 
 
