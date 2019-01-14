@@ -1,7 +1,7 @@
 # Kangaroos #
 Particle Filters with Markov Chain Monte Carlo
 
-This project was developed following a course from N.Chopin at ENSAE ParisTech. It aims at reproducing the results from [1]. In this paper, Knape et al. attempted to estimate population state-space models using a Particle filter Metropolis Hastings algorithm. What's innovative with it is that they used an adaptive scheme to update the proposal of the Metropolis Hastings algorithm and improve the mixing.
+This project was developed following a course from N.Chopin at ENSAE ParisTech. It aims at reproducing the results from [1]. In this paper, Knape et al. attempted to estimate population state-space models using a Particle filter Metropolis Hastings algorithm. The innovation in their approach is that they used an adaptive scheme to update the proposal of the Metropolis Hastings algorithm and improve the mixing.
 
 Going back to this work, you will see that it heavily relies on the package [particles](https://github.com/nchopin/particles) for the implementation of our PMMH algorithm. Don't hesitate to have a look at it.
 
