@@ -111,10 +111,10 @@ class LDEuler(ssm.StateSpaceModel):
         return dists.Normal(loc=np.log(mean_N0), scale=0.01)
 
     def PX(self, t, xp):
-#        if self.r<= 0:
-            return LDP(loc=xp, r=self.r, b=self.b, sigma=self.sigma, dt=dt[t], step=40.)
-#        else:
-#            return dists.Gamma(a=2*self.r/self.sigma**2, b=2*self.b/self.sigma**2)  # gamma stationary distribution
+        if self.r<= 0:
+            return LDP(loc=xp, r=self.r, b=self.b, sigma=self.sigma, dt=dt[t], step=100.)
+        else:
+            return dists.Gamma(a=2*self.r/self.sigma**2, b=2*self.b/self.sigma**2)  # gamma stationary distribution
 
     def PY(self, t, xp, x):
         return dists.IndepProd(NegativeBinomial(n=1 / self.tau, p=1 / (1 + self.tau * np.exp(x))),

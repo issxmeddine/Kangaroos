@@ -224,7 +224,7 @@ class AdaptivePMMH(mcmc.PMMH):
                 z = stats.norm.rvs(size=d)
                 choice = np.int(np.random.choice(3, size=1,
                                                  p=[self.w01, self.w02, 1-self.w01-self.w02]))
-                factor = [0.1*np.eye(d), self.L, np.sqrt(self.k0)*self.L][choice]
+                factor = [np.sqrt(0.1)*np.eye(d), self.L, np.sqrt(self.k0)*self.L][choice]
                 self.prop.arr[0] = self.chain.arr[n - 1] + np.dot(factor, z)
             self.compute_post()
             lp_acc = self.prop.lpost[0] - self.chain.lpost[n - 1]
