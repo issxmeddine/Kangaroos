@@ -11,9 +11,9 @@ Going back to this work, you will see that it heavily relies on the package [par
 
 The folder *ParticleMCMC* contains our implementation of the different functions used to model the state-space models as well as those used to perform the adaptive PMMH algorithm. In the sub-directory *Experiments*, you will find the notebooks that we used to produce our different results.
 
-# Original work from Knape et al. #
+# Original work from Knape et De Valpine #
 
-The original R code developed by the authors of the article under scrutiny is also available here, in case you would like to reproduce their results.
+The original R code developed by the authors of the article under scrutiny is also available here, in case you would like to reproduce their results. We added some variation to try this code with Model 1 (original code provided for model 2).
 
 # Bibliography #
 
